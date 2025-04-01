@@ -1,0 +1,126 @@
+---
+title: "My dynamic report"
+subtitle: "STATS 220 Semester One 2025"
+author: "Wendy Zhang"
+output: html_fragment
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, error=FALSE)
+```
+
+```{css}
+h1 {
+  color: black;
+  font-family: Arial;
+}
+
+body {
+  background-color: white; 
+}
+
+p {
+  font-size: 18px; 
+  line-height: 1.5; 
+}
+
+code {
+  background-color: #e3e3e3;
+  padding: 5px; 
+}
+
+```
+
+## Observational logging of smartphone usage
+
+
+```{r}
+library(tidyverse)
+
+# original data from the google sheet
+
+csv <-"https://docs.google.com/spreadsheets/d/e/2PACX-1vRLz_g9WkbiWe4o36o-eUB62WW4zkCrd2Dy4YHjKAj4l8cIeZcP2KikKD-1B9q3Lc_uHy5lgmxZeJtL/pub?output=csv"
+
+logged_data<-read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRLz_g9WkbiWe4o36o-eUB62WW4zkCrd2Dy4YHjKAj4l8cIeZcP2KikKD-1B9q3Lc_uHy5lgmxZeJtL/pub?output=csv")
+
+# Rename the variables of the data frame, as part of creating a new data frame named "latest_data"
+
+latest_data <- logged_data %>%
+  rename(number_people = 2,
+         onphone = 3,
+         state_onphone = 4,
+         action_onphone = 5,
+         place = 6,
+         action_notonphone = 7,
+         state_notonphone = 8,
+         notonphone = 9)
+#glimpse(logged_data)
+
+# Summarise some values of my observational logging
+summary_stats <- latest_data %>%
+  summarise(total_people = sum(number_people),
+            average_onphone = mean(onphone),
+            max_rate_onphone = max(onphone/number_people),
+            min_rate_onphone = min(onphone/number_people),
+            onphone_rate = mean(onphone/number_people),
+            average_notonphone = mean(number_people - onphone),
+            average_notonphone_rate = mean((number_people - onphone)/(number_people)),
+            )
+
+#print(summary_stats)
+
+```
+
+I have collected 26 observation data for this project. Based on those data, we can have different summary values. Each are presented below 
+
+The total amount of people in this observation is `r summary_stats$total_people`. 
+
+From those observations, we can see that our average people that is using their phone at the moment of the observation is `r summary_stats$average_onphone`. Meaning that out of the total amount of people, which is `r summary_stats$total_people`, we are expecting to see an average of `r summary_stats$average_onphone` people using their smartphone in the public places in an observation. 
+
+At the same time, we can compare this data with the average people that are not using their smartphones in the public places, which is `r summary_stats$average_notonphone`. Similarly, this means that out of the total amount of people `r summary_stats$total_people`, we are expecting to see an average of `r summary_stats$average_notonphone` people who are not using their smartphone in the public places at the time of the observation in an observation. 
+
+Out of our total observations, the maximum and minimum rate of using phone is `r summary_stats$max_rate_onphone` and `r summary_stats$min_rate_onphone` respectively. This means there is at least one observation that all people uses their phone in the public places, and there is at least one observation where no one is using their phone. 
+
+At the same time, I have calculated the average rate of people using their phone in the public places is `r summary_stats$onphone_rate`. This is about 33%, and it suggests that on average, about 1 out of every 3 people I observed was using their phone in the public places. 
+
+On the other hand, the average rate of people who do no use their phone in the public places is `r summary_stats$average_notonphone_rate`, which is about 66.7%, and it actually suggests that on average about 2 out of 3 people I observed was not using their phone in the public places. 
+
+
+```{r}
+# bar chart showing one's phone activity
+ggplot(data = latest_data) +
+  geom_bar(aes(x = state_onphone),
+           fill="black")
+```
+
+This bar chat above shows the phone activity of the people who are using their phones. We can observe that "reading" is the mode of phone activity. This includes everything that is text-based on their phone, including reading a novel, a short article etc. It also indicates that the other phone activities like gaming appears to be the least common phone activity in this observation. Meaning that, we can expect there tend to be more people using their phone on "reading" compared with "gaming".   
+
+```{r}
+# bar chart showing the people who are using phone are alone or with others
+
+ggplot(data = latest_data) +
+  geom_bar(aes(x = action_onphone),
+           fill="white")
+```
+
+This bar chart above shows the state of the people who are using their phone. Particularly, if they are alone or with others. From this bar chart, we can observe that the majority of people who are using their phones in the public places are alone. This suggests that if a person is using their phone, that person is more likely to be alone compared with to be with others. 
+
+```{r}
+# bar chart showing the location/places in which people use phone 
+
+ggplot(data = latest_data) +
+  geom_bar(aes(x = place),
+           fill="blue")
+```
+
+This bar chart above shows the locations in which people are using their phones. Based on the observational data, there are quite a lot people using their phones in the bus and at the school. Maybe due to the fact that there are more observations taking on the bus and at the school compared with other public places.  
+
+```{r}
+# bar chart showing the people who are not using phone are alone or with others
+
+ggplot(data = latest_data) +
+  geom_bar(aes(x = state_notonphone),
+           fill="red")
+```
+
+This bar chart above shows the state of the people who are not using their phone in the public places. More specifically, if they are alone or with others. From this bar chart, we can observe that the majority of people who are using their phones in the public places are with others. This suggests that if a person is using their phone, that person is more likely to be with others compared with to be alone. However, the portion of "alone" is still quite high. This may suggests that although they are alone, they might have other tasks or do other things at the time of not using their phone. This idea can be presented in the "latest_data", where it shows the event that those people are doing at the time of observation. Some examples would be doing gym exercises in the gym, shopping in the supermarket, chatting with others on the bus, etc. 
