@@ -1,0 +1,225 @@
+---
+title: People and Smartphone usage in public places
+output: html_document
+---
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, error=FALSE)
+```
+
+```{js}
+$(function() {
+  $(".level2").css('visibility', 'hidden');
+  $(".level2").first().css('visibility', 'visible');
+  $(".container-fluid").height($(".container-fluid").height() + 300);
+  $(window).on('scroll', function() {
+    $('h2').each(function() {
+      var h2Top = $(this).offset().top - $(window).scrollTop();
+      var windowHeight = $(window).height();
+      if (h2Top >= 0 && h2Top <= windowHeight / 2) {
+        $(this).parent('div').css('visibility', 'visible');
+      } else if (h2Top > windowHeight / 2) {
+        $(this).parent('div').css('visibility', 'hidden');
+      }
+    });
+  });
+})
+```
+
+```{css}
+.figcaption {display: none}
+```
+
+```{css}
+body {
+  background-color: #deebf7;  
+  color: #000000;             
+}
+
+h2 {
+  color: #3182bd; 
+}
+
+.plot-title {
+  color: #3182bd;
+}
+```
+
+```{r}
+library(tidyverse)
+library(magick)
+library(stringr)
+library(lubridate)
+library(cuttingshapes)
+
+logged_data <- read.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRLz_g9WkbiWe4o36o-eUB62WW4zkCrd2Dy4YHjKAj4l8cIeZcP2KikKD-1B9q3Lc_uHy5lgmxZeJtL/pub?output=csv")
+glimpse(logged_data)
+latest_data <- logged_data %>%
+  rename(number_people = 2,
+         onphone = 3,
+         state_onphone = 4,
+         action_onphone = 5,
+         place = 6,
+         action_notonphone = 7,
+         state_notonphone = 8,
+         notonphone = 9)
+
+# Summarise some values of my observational logging
+summary_stats <- latest_data %>%
+  summarise(total_people = sum(number_people),
+            average_onphone = mean(onphone),
+            max_rate_onphone = max(onphone/number_people),
+            min_rate_onphone = min(onphone/number_people),
+            onphone_rate = mean(onphone/number_people),
+            average_notonphone = mean(number_people - onphone),
+            average_notonphone_rate = mean((number_people - onphone)/(number_people)),
+  )
+
+# print(summary_stats)
+
+```
+## What's going on with this data?
+
+I have collected 50 observational data for this project. Based on those data, we can have different summary values. Each are presented below 
+
+The total amount of people in this observation is `r summary_stats$total_people`. 
+
+From those observations, we can see that our average people that is using their phone at the moment of the observation is `r summary_stats$average_onphone`. Meaning that out of the total amount of people, which is `r summary_stats$total_people`, we are expecting to see an average of `r summary_stats$average_onphone` people using their smartphone in the public places in an observation. 
+
+At the same time, we can compare this data with the average people that are not using their smartphones in the public places, which is `r summary_stats$average_notonphone`. Similarly, this means that out of the total amount of people `r summary_stats$total_people`, we are expecting to see an average of `r summary_stats$average_notonphone` people who are not using their smartphone in the public places at the time of the observation in an observation. 
+
+Out of our total observations, the maximum and minimum rate of using phone is `r summary_stats$max_rate_onphone` and `r summary_stats$min_rate_onphone` respectively. This means there is at least one observation that all people uses their phone in the public places, and there is at least one observation where no one is using their phone. 
+
+At the same time, I have calculated the average rate of people using their phone in the public places is `r summary_stats$onphone_rate`.
+
+On the other hand, the average rate of people who do no use their phone in the public places is `r summary_stats$average_notonphone_rate`, which is about 56.6%. 
+
+## Phone Activity Barchart
+
+```{r}
+
+latest_data %>%
+  count(state_onphone) %>%
+  arrange(desc(n))
+
+activity_data <- latest_data %>%
+  mutate(main_activity = case_when(
+    str_detect(state_onphone, "Calling|Texting") ~ "social",
+    str_detect(state_onphone, "Watching movie/video") ~ "entertainment",
+    str_detect(state_onphone, "Reading") ~ "information",
+    str_detect(state_onphone, "Gaming") ~ "game",
+    TRUE ~ "other"
+  ))
+
+activity_summary <- activity_data %>%
+  count(main_activity)
+
+activity_summary %>%
+  ggplot() +
+  geom_col(aes(x = main_activity, y = n, fill = main_activity)) +
+  labs(
+    title = "Phone Activity Categories Observed",
+    x = "Activity Category",
+    y = "Number of People"
+  ) +
+  theme_minimal()
+ggsave("plot1.png")
+```
+
+This bar chat above shows the phone activity of the people who are using their phones. I have classified phone activity in different catogories in order to make the data more readable. We can observe that "social" is the mode of phone activity, which includes all the action of texting, calling, chatting, on phone at the time of the observation. It also indicates that the catogory, "Game", appears to be the least common phone activity in this observation. Meaning that, we can expect there tend to be more people using their phone on "social" compared with "game".   
+
+## Distribution of phone usage in different location, Box plot
+
+```{r}
+
+latest_data <- latest_data %>%
+  mutate(phone_rate = onphone / number_people)
+
+place_median <- latest_data %>%
+  group_by(place) %>%
+  mutate(med_rate = median(phone_rate, na.rm = TRUE))
+
+ggplot(place_median,
+       aes(x = phone_rate,
+           y = reorder(place, -med_rate),
+           colour = place)) +
+  geom_jitter(height = 0.2) +
+  geom_boxplot(fill = "transparent") +
+  labs(
+    title = "Distribution of Phone Usage Rates by Location",
+    x = "Proportion Using Phones",
+    y = "Place"
+  ) +
+  guides(colour = "none") +
+  theme_minimal()
+
+ggsave("plot2.png")
+```
+
+This boxplot shows the variation of phone usage rates across different public places. We observed that there is consistently low usage of phone in places like supermarkets, restaurants, and high usage in spaces like schools, buses. This might be that people in supermarkes and restaurants have other things to do rather than using their phone at the time of the observation, whereas people sitting in a bus or in school have free time and likely no other tasks to do at the time of the observation. Since there are high variation of data, may suggests that the number of data relating to people using phone at bus are higher than those gathered in other public places.
+
+## The state of people using their phone  
+
+```{r}
+
+ggplot(data = latest_data) +
+  geom_bar(aes(x = action_onphone),
+           fill="white") +
+  labs(title = "Alone VS With others",
+       x = "State of people using their phone",
+       y = "Number of people")
+ggsave("plot3.png")
+
+```
+
+This bar chart above shows the state of the people who are using their phone. Particularly, if they are alone or with others. From this bar chart, we can observe that the majority of people who are using their phones in the public places are alone. This suggests that if a person is using their phone, that person is more likely to be alone compared with to be with others. 
+
+## The state of people using their phone  
+
+```{r}
+
+ggplot(data = latest_data) +
+  geom_bar(aes(x = state_notonphone),
+           fill="black") +
+  labs(title = "Alone VS With others",
+       x = "State of people not using their phone",
+       y = "Number of people")
+
+ggsave("plot4.png")
+
+```
+
+This bar chart above shows the state of the people who are not using their phone in the public places. More specifically, if they are alone or with others. From this bar chart, we can observe that the majority of people who are using their phones in the public places are with others. This suggests that if a person is using their phone, that person is more likely to be with others compared with to be alone. However, the portion of "alone" is still quite high. This may suggests that although they are alone, they might have other tasks or do other things at the time of not using their phone. This idea can be presented in the "latest_data", where it shows the event that those people are doing at the time of observation. Some examples would be doing gym exercises in the gym, shopping in the supermarket, chatting with others on the bus, etc. 
+
+## Time of using phone during the day
+
+```{r}
+latest_data <- latest_data %>%
+  mutate(log_datetime = ymd_hms(Timestamp)) %>%
+  mutate(log_hour = hour(log_datetime))
+
+hour_summary <- latest_data %>%
+  group_by(log_hour) %>%
+  summarise(phone_rate = mean((onphone)/(number_people), na.rm = TRUE))
+
+ggplot(hour_summary, aes(x = log_hour, y = phone_rate)) +
+  geom_col(fill = "#e3f33f") +
+  theme_minimal() +
+  labs(
+    title = "Phone usage rate by hour",
+    x = "Hour of the day",
+    y = "Average phone rate"
+  )
+ggsave("plot.png")
+cool_thing <- cut_shape(image = "https://cdn.pixabay.com/photo/2018/03/29/11/59/animal-3272072_1280.jpg",
+                        shape = "plot.png",
+                        color = "#e3f33f")
+
+cool_thing
+cool_thing %>%
+  image_write("dogs_furever.png")
+```
+
+This graph shows the variation of time using the phone in public places during the day. The decimal in the x axis just indicates the time of the day in hour, where x < 12 indicates time AM, and x > 12 indicates time PM. The decimal place after the whole number ".5" suggests half an hour. We can observed that the highest phone usage is between about 8 to 9 am, with a second highest appear between about 9 to 10 am. The lowest phone usage is between about 10:30 to 11:30 am during the day. This may suggests that the expected number of people using their phone in public spaces during 8 to 9 am is higher than during 10:30 to 11:30 am. 
